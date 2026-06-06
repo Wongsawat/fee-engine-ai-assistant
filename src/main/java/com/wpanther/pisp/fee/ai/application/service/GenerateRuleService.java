@@ -1,10 +1,10 @@
 package com.wpanther.pisp.fee.ai.application.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.wpanther.pisp.fee.ai.adapter.in.rest.dto.CreateFeeRuleRequest;
 import com.wpanther.pisp.fee.ai.application.exception.AiOutputParseException;
 import com.wpanther.pisp.fee.ai.application.exception.InvalidDraftRequestException;
 import com.wpanther.pisp.fee.ai.application.exception.TargetRuleNotFoundException;
+import com.wpanther.pisp.fee.ai.application.model.FeeRuleSchema;
 import com.wpanther.pisp.fee.ai.application.port.in.GenerateRuleUseCase;
 import com.wpanther.pisp.fee.ai.application.port.out.*;
 import com.wpanther.pisp.fee.ai.domain.model.AiDraft;
@@ -67,20 +67,74 @@ public class GenerateRuleService implements GenerateRuleUseCase {
     }
 
     private void validateAiOutput(String ruleJson) {
+        FeeRuleSchema schema;
         try {
-            CreateFeeRuleRequest req = objectMapper.readValue(ruleJson, CreateFeeRuleRequest.class);
-            Set<ConstraintViolation<CreateFeeRuleRequest>> violations = validator.validate(req);
-            if (!violations.isEmpty()) {
-                String msg = violations.stream()
-                        .map(v -> v.getPropertyPath() + " " + v.getMessage())
-                        .collect(Collectors.joining("; "));
-                throw new AiOutputParseException("AI output failed validation: " + msg);
-            }
+            schema = objectMapper.readValue(ruleJson, FeeRuleSchema.class);
         } catch (AiOutputParseException e) {
             throw e;
         } catch (Exception e) {
-            throw new AiOutputParseException("AI output could not be parsed as CreateFeeRuleRequest: " + e.getMessage());
+            throw new AiOutputParseException("AI output could not be parsed as a fee rule: " + e.getMessage());
         }
+
+        Set<ConstraintViolation<FeeRuleSchema>> violations = validator.validate(schema);
+        if (!violations.isEmpty()) {
+            String msg = violations.stream()
+                    .map(v -> v.getPropertyPath() + " " + v.getMessage())
+                    .collect(Collectors.joining("; "));
+            throw new AiOutputParseException("AI output failed validation: " + msg);
+        }
+
+        validateFeeTypeConstraints(schema);
+    }
+
+    private void validateFeeTypeConstraints(FeeRuleSchema s) {
+        String ft = s.feeType();
+        switch (ft) {
+            case "FLAT" -> {
+                requirePresent(s.flatAmount(), "feeType FLAT requires flatAmount");
+                requireAbsent(s.percentage(), "feeType FLAT must not set percentage");
+                requireAbsent(s.tiers(), "feeType FLAT must not set tiers");
+                requireAbsent(s.minFee(), "feeType FLAT must not set minFee");
+                requireAbsent(s.maxFee(), "feeType FLAT must not set maxFee");
+            }
+            case "PERCENTAGE" -> {
+                requirePresent(s.percentage(), "feeType PERCENTAGE requires percentage");
+                requireAbsent(s.flatAmount(), "feeType PERCENTAGE must not set flatAmount");
+                requireAbsent(s.tiers(), "feeType PERCENTAGE must not set tiers");
+            }
+            case "TIERED" -> {
+                if (s.tiers() == null || s.tiers().isEmpty())
+                    throw new AiOutputParseException("AI output invalid: feeType TIERED requires at least one tier");
+                requireAbsent(s.flatAmount(), "feeType TIERED must not set flatAmount");
+                requireAbsent(s.percentage(), "feeType TIERED must not set percentage");
+                requireAbsent(s.minFee(), "feeType TIERED must not set minFee");
+                requireAbsent(s.maxFee(), "feeType TIERED must not set maxFee");
+            }
+            case "FREE" -> {
+                requireAbsent(s.flatAmount(), "feeType FREE must not set flatAmount");
+                requireAbsent(s.percentage(), "feeType FREE must not set percentage");
+                requireAbsent(s.tiers(), "feeType FREE must not set tiers");
+                requireAbsent(s.minFee(), "feeType FREE must not set minFee");
+                requireAbsent(s.maxFee(), "feeType FREE must not set maxFee");
+            }
+            // Unknown feeType values are caught upstream by bean validation (@NotBlank covers presence;
+            // fee-engine validates the enumerated values — we don't duplicate that enum list here).
+        }
+    }
+
+    private static void requirePresent(String value, String message) {
+        if (value == null || value.isBlank())
+            throw new AiOutputParseException("AI output invalid: " + message);
+    }
+
+    private static void requireAbsent(String value, String message) {
+        if (value != null && !value.isBlank())
+            throw new AiOutputParseException("AI output invalid: " + message);
+    }
+
+    private static void requireAbsent(java.util.List<?> value, String message) {
+        if (value != null && !value.isEmpty())
+            throw new AiOutputParseException("AI output invalid: " + message);
     }
 
     private String fetchEnrichment(java.util.UUID targetRuleId, String bearerToken) {

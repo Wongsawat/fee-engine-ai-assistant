@@ -90,4 +90,61 @@ class GenerateRuleServiceTest {
         assertThatThrownBy(() -> service.generate(new GenerateCommand("x", DraftType.GENERATE, null), "tok"))
                 .isInstanceOf(com.wpanther.pisp.fee.ai.application.exception.AiOutputParseException.class);
     }
+
+    @Test
+    void flatFeeTypeMissingFlatAmountThrows() {
+        when(aiChatPort.generate(any(), any()))
+                .thenReturn(new GenerationResult(
+                        "{\"paymentType\":\"DOMESTIC\",\"scheme\":\"FPS\",\"chargeBearer\":\"BorneByDebtor\","
+                        + "\"chargeType\":\"ServiceCharge\",\"feeType\":\"FLAT\",\"currency\":\"GBP\"}", "oops"));
+        assertThatThrownBy(() -> service.generate(new GenerateCommand("x", DraftType.GENERATE, null), "tok"))
+                .isInstanceOf(com.wpanther.pisp.fee.ai.application.exception.AiOutputParseException.class)
+                .hasMessageContaining("flatAmount");
+    }
+
+    @Test
+    void percentageFeeTypeMissingPercentageThrows() {
+        when(aiChatPort.generate(any(), any()))
+                .thenReturn(new GenerationResult(
+                        "{\"paymentType\":\"DOMESTIC\",\"scheme\":\"FPS\",\"chargeBearer\":\"BorneByDebtor\","
+                        + "\"chargeType\":\"ServiceCharge\",\"feeType\":\"PERCENTAGE\",\"currency\":\"GBP\"}", "oops"));
+        assertThatThrownBy(() -> service.generate(new GenerateCommand("x", DraftType.GENERATE, null), "tok"))
+                .isInstanceOf(com.wpanther.pisp.fee.ai.application.exception.AiOutputParseException.class)
+                .hasMessageContaining("percentage");
+    }
+
+    @Test
+    void tieredFeeTypeMissingTiersThrows() {
+        when(aiChatPort.generate(any(), any()))
+                .thenReturn(new GenerationResult(
+                        "{\"paymentType\":\"DOMESTIC\",\"scheme\":\"CHAPS\",\"chargeBearer\":\"BorneByDebtor\","
+                        + "\"chargeType\":\"ServiceCharge\",\"feeType\":\"TIERED\",\"currency\":\"GBP\"}", "oops"));
+        assertThatThrownBy(() -> service.generate(new GenerateCommand("x", DraftType.GENERATE, null), "tok"))
+                .isInstanceOf(com.wpanther.pisp.fee.ai.application.exception.AiOutputParseException.class)
+                .hasMessageContaining("tier");
+    }
+
+    @Test
+    void freeFeeTypeWithFlatAmountThrows() {
+        when(aiChatPort.generate(any(), any()))
+                .thenReturn(new GenerationResult(
+                        "{\"paymentType\":\"DOMESTIC\",\"scheme\":\"FPS\",\"chargeBearer\":\"BorneByDebtor\","
+                        + "\"chargeType\":\"ServiceCharge\",\"feeType\":\"FREE\","
+                        + "\"flatAmount\":\"0.00\",\"currency\":\"GBP\"}", "oops"));
+        assertThatThrownBy(() -> service.generate(new GenerateCommand("x", DraftType.GENERATE, null), "tok"))
+                .isInstanceOf(com.wpanther.pisp.fee.ai.application.exception.AiOutputParseException.class)
+                .hasMessageContaining("flatAmount");
+    }
+
+    @Test
+    void capsOnNonPercentageFeeTypeThrows() {
+        when(aiChatPort.generate(any(), any()))
+                .thenReturn(new GenerationResult(
+                        "{\"paymentType\":\"DOMESTIC\",\"scheme\":\"FPS\",\"chargeBearer\":\"BorneByDebtor\","
+                        + "\"chargeType\":\"ServiceCharge\",\"feeType\":\"FLAT\","
+                        + "\"flatAmount\":\"5.00\",\"minFee\":\"1.00\",\"currency\":\"GBP\"}", "oops"));
+        assertThatThrownBy(() -> service.generate(new GenerateCommand("x", DraftType.GENERATE, null), "tok"))
+                .isInstanceOf(com.wpanther.pisp.fee.ai.application.exception.AiOutputParseException.class)
+                .hasMessageContaining("minFee");
+    }
 }
