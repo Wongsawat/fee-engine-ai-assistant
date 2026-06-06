@@ -1,0 +1,52 @@
+spring:
+  application:
+    name: fee-engine-ai-assistant
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/fee_ai_assistant}
+    username: ${DB_USERNAME:fee_ai}
+    password: ${DB_PASSWORD:fee_ai}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    locations: classpath:db/migration
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${OIDC_ISSUER_URI:https://auth.example.com}
+  ai:
+    anthropic:
+      base-url: ${ANTHROPIC_BASE_URL:https://api.z.ai/api/anthropic}
+      api-key: ${ANTHROPIC_AUTH_TOKEN:dummy}
+      chat:
+        options:
+          model: ${AI_MODEL:glm-5.1}
+          max-tokens: 4096
+          temperature: 0.2
+
+ai-assistant:
+  chat:
+    enabled: ${AI_CHAT_ENABLED:true}
+    timeout-seconds: ${AI_TIMEOUT_SECONDS:30}
+    max-input-chars: ${AI_MAX_INPUT_CHARS:20000}
+    daily-token-limit: ${AI_DAILY_TOKEN_LIMIT:0}
+  retention:
+    prompt-redact-days: ${PROMPT_REDACT_DAYS:30}
+    purge-days: ${DRAFT_PURGE_DAYS:90}
+  schema:
+    fee-engine-schema-version: ${FEE_ENGINE_SCHEMA_VERSION:V7}
+
+fee-engine:
+  base-url: ${FEE_ENGINE_BASE_URL:http://localhost:8080}
+  timeout-seconds: ${FEE_ENGINE_TIMEOUT_SECONDS:10}
+
+server:
+  port: 8081
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus

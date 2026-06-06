@@ -1,0 +1,11 @@
+spring:
+  ai:
+    anthropic:
+      api-key: test-key
+      base-url: http://localhost:0
+  flyway:
+    enabled: true
+
+ai-assistant:
+  chat:
+    daily-token-limit: 0
