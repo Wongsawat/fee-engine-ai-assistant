@@ -87,18 +87,18 @@ sequenceDiagram
 ```mermaid
 flowchart TD
     A[SpringAiChatAdapter.call] --> B{AI enabled?}
-    B -->|No| C[throw AiDisabledException → 503]
+    B -->|No| C["throw AiDisabledException - 503"]
     B -->|Yes| D{Daily budget exceeded?}
-    D -->|Yes| E[throw AiQuotaExceededException → 429]
+    D -->|Yes| E["throw AiQuotaExceededException - 429"]
     D -->|No| F{Combined prompt > maxInputChars?}
-    F -->|Yes| G[throw AiInputTooLargeException → 422]
+    F -->|Yes| G["throw AiInputTooLargeException - 422"]
     F -->|No| H[Build Prompt:<br/>SystemMessage + UserMessage]
 
     H --> I[chatModel.call prompt]
     I --> J{Model call succeeds?}
 
     J -->|Exception| K[Record metrics:<br/>outcome=server_error]
-    K --> L[Re-throw exception → 500/502]
+    K --> L["Re-throw exception - 500/502"]
 
     J -->|Success| M[Extract response text]
     M --> N{Operation?}
@@ -107,7 +107,7 @@ flowchart TD
     N -->|review| P[Return raw text as-is]
 
     O --> Q{Parse succeeds?}
-    Q -->|No — non-JSON or missing fields| R[throw AiOutputParseException → 422<br/>outcome=parse_error]
+    Q -->|"No"| R["throw AiOutputParseException - 422<br/>outcome=parse_error"]
     Q -->|Yes| S[Record metrics:<br/>outcome=success, token counts]
     P --> S
 
@@ -352,22 +352,22 @@ sequenceDiagram
         Svc->>Fee: PUT /admin/fee-rules/{targetRuleId}<br/>body: draft.ruleJson
     end
 
-    alt Fee-engine 403 — permission denied
+    alt Fee-engine returns 403
         Fee-->>Svc: 403
         Svc-->>Admin: 403 "Caller does not have permission to ..."
-    else Fee-engine 404 — target rule deleted (UPDATE only)
+    else Fee-engine returns 404
         Fee-->>Svc: 404
-        Svc->>Svc: resetToPending — clear status and dryRunResult
+        Svc->>Svc: resetToPending
         Svc->>Repo: save(reset draft)
-        Svc-->>Admin: 404 "Target rule {id} was deleted; draft reset to PENDING"
-    else Fee-engine error
+        Svc-->>Admin: 404 "Target rule deleted, draft reset to PENDING"
+    else Fee-engine returns other error
         Fee-->>Svc: 4xx/5xx
-        Svc-->>Admin: FeeEngineClientException → 422
+        Svc-->>Admin: FeeEngineClientException mapped to 422
     else Fee-engine success
-        Fee-->>Svc: FeeRuleResult {id, body}
-        Svc->>Repo: save(APPROVED + feeRuleId from result)
+        Fee-->>Svc: FeeRuleResult with id and body
+        Svc->>Repo: save with APPROVED status and feeRuleId
         Repo-->>Ctrl: AiDraft
-        Ctrl-->>Admin: HTTP 200<br/>{status: APPROVED, feeRuleId, version}
+        Ctrl-->>Admin: HTTP 200<br/>status APPROVED, feeRuleId, version
     end
 ```
 
@@ -648,11 +648,11 @@ flowchart TD
 
     B --> C[Redact prompts on terminal drafts<br/>older than redactCutoff]
     C --> D["repository.redactPromptsOlderThan<br/>([APPROVED, REJECTED], redactCutoff)"]
-    D --> E[Bulk JPQL UPDATE:<br/>SET prompt = NULL<br/>WHERE status IN (APPROVED, REJECTED)<br/>AND updated_at < :cutoff]
+    D --> E["Bulk JPQL UPDATE:<br/>SET prompt = NULL<br/>WHERE status IN #40;APPROVED, REJECTED#41;<br/>AND updated_at &lt; :cutoff"]
 
     E --> F[Delete terminal drafts<br/>older than purgeCutoff]
     F --> G["repository.deleteByStatusInAndUpdatedAtBefore<br/>([APPROVED, REJECTED], purgeCutoff)"]
-    G --> H[Bulk JPQL DELETE:<br/>WHERE status IN (APPROVED, REJECTED)<br/>AND updated_at < :cutoff]
+    G --> H["Bulk JPQL DELETE:<br/>WHERE status IN #40;APPROVED, REJECTED#41;<br/>AND updated_at &lt; :cutoff"]
 
     style A fill:#bbdefb
     style E fill:#fff3e0
