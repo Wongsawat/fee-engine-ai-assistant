@@ -4,6 +4,8 @@ AI-powered fee rule assistant for the `pisp` fee-engine. Uses Spring AI (Anthrop
 
 Part of the `pisp` platform alongside the [fee-engine](../fee-engine) (downstream rule engine) and [saga-orchestrator](../saga-orchestrator) services.
 
+For detailed sequence and flow diagrams covering rule generation, AI chat, dry-run, approval, draft lifecycle, retention, security, and error handling, see [docs/flow-diagrams.md](docs/flow-diagrams.md).
+
 ## Endpoints
 
 ### REST API — `/ai/drafts` (JWT bearer required)
