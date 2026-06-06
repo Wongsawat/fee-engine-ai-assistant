@@ -77,4 +77,10 @@ class RunDryRunServiceTest {
         when(repo.findById(id)).thenReturn(Optional.of(draft(DraftType.GENERATE, DraftStatus.APPROVED, null)));
         assertThatThrownBy(() -> service.dryRun(id, "tok")).isInstanceOf(InvalidDraftStatusException.class);
     }
+
+    @Test
+    void dryRunFromDryRunPassedThrows409() {
+        when(repo.findById(id)).thenReturn(Optional.of(draft(DraftType.GENERATE, DraftStatus.DRY_RUN_PASSED, null)));
+        assertThatThrownBy(() -> service.dryRun(id, "tok")).isInstanceOf(InvalidDraftStatusException.class);
+    }
 }

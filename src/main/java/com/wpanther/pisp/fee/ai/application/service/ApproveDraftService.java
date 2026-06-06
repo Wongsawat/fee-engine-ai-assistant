@@ -1,6 +1,7 @@
 package com.wpanther.pisp.fee.ai.application.service;
 
 import com.wpanther.pisp.fee.ai.application.exception.DraftNotFoundException;
+import com.wpanther.pisp.fee.ai.application.exception.FeeEnginePermissionDeniedException;
 import com.wpanther.pisp.fee.ai.application.exception.InvalidDraftStatusException;
 import com.wpanther.pisp.fee.ai.application.exception.TargetRuleNotFoundException;
 import com.wpanther.pisp.fee.ai.application.port.in.ApproveDraftUseCase;
@@ -46,6 +47,9 @@ public class ApproveDraftService implements ApproveDraftUseCase {
                 repository.save(resetToPending(draft));
                 throw new TargetRuleNotFoundException(
                         "Target rule " + draft.targetRuleId() + " was deleted; draft reset to PENDING — re-run dry-run or reject");
+            }
+            if (e.status() == 403) {
+                throw new FeeEnginePermissionDeniedException(draft.targetRuleId());
             }
             throw e;
         }

@@ -24,6 +24,8 @@ public class RetentionConfig {
     public void runRetention() {
         Instant redactCutoff = Instant.now().minus(properties.getPromptRedactDays(), ChronoUnit.DAYS);
         Instant purgeCutoff = Instant.now().minus(properties.getPurgeDays(), ChronoUnit.DAYS);
+        // Bypasses DraftRepository port intentionally: bulk JPQL avoids per-row @PreUpdate callbacks
+        // so updated_at is NOT bumped on redaction (bumping would extend the purge window from T+90 to T+120).
         repository.redactPromptsOlderThan(TERMINAL, redactCutoff);
         repository.deleteByStatusInAndUpdatedAtBefore(TERMINAL, purgeCutoff);
     }

@@ -1,5 +1,6 @@
 package com.wpanther.pisp.fee.ai.application.service;
 
+import com.wpanther.pisp.fee.ai.application.exception.FeeEnginePermissionDeniedException;
 import com.wpanther.pisp.fee.ai.application.exception.InvalidDraftStatusException;
 import com.wpanther.pisp.fee.ai.application.exception.TargetRuleNotFoundException;
 import com.wpanther.pisp.fee.ai.application.port.out.*;
@@ -91,8 +92,8 @@ class ApproveDraftServiceTest {
         when(repo.findById(id)).thenReturn(Optional.of(draft(DraftType.GENERATE, DraftStatus.DRY_RUN_PASSED, null)));
         when(feeEngine.create(any(), any())).thenThrow(new FeeEngineClientException(403, null));
         assertThatThrownBy(() -> service.approve(id, "tok"))
-                .isInstanceOf(FeeEngineClientException.class)
-                .satisfies(e -> assertThat(((FeeEngineClientException) e).status()).isEqualTo(403));
+                .isInstanceOf(FeeEnginePermissionDeniedException.class)
+                .hasMessageContaining("permission");
     }
 
     @Test

@@ -64,6 +64,7 @@ public class DraftController {
                                     @RequestParam(required = false) String createdBy,
                                     @RequestParam(defaultValue = "0") int page,
                                     @RequestParam(defaultValue = "20") int size) {
+        if (size < 1) throw new InvalidDraftRequestException("size must be >= 1 (got: " + size + ")");
         DraftStatus statusEnum = parseStatus(status);
         Page<AiDraft> result = manageDraftsUseCase.list(statusEnum, createdBy,
                 PageRequest.of(page, size));

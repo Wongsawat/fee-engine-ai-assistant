@@ -61,6 +61,11 @@ public class GlobalExceptionHandler {
         return problem(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
     }
 
+    @ExceptionHandler(FeeEnginePermissionDeniedException.class)
+    public ProblemDetail handleFeeEnginePermission(FeeEnginePermissionDeniedException ex) {
+        return problem(HttpStatus.FORBIDDEN, ex.getMessage());
+    }
+
     @ExceptionHandler(FeeEngineClientException.class)
     public ProblemDetail handleFeeEngine(FeeEngineClientException ex) {
         HttpStatus status = HttpStatus.resolve(ex.status());

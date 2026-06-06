@@ -19,6 +19,7 @@ import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.function.Function;
 
 @Component
 public class SpringAiChatAdapter implements AiChatPort {
@@ -47,18 +48,18 @@ public class SpringAiChatAdapter implements AiChatPort {
                 : "Update this existing fee rule:\n" + enrichment
                   + "\nAdmin's change: " + naturalLanguage
                   + "\nReturn the complete updated rule.";
-        String content = call(user, "generate");
-        return parseGeneration(content);
+        return call(user, "generate", this::parseGeneration);
     }
 
     @Override
     public String review(String ruleJson) {
         String user = "Review this fee rule JSON: (1) what payments it matches, "
                 + "(2) schema constraint violations, (3) potential conflicts.\n\n" + ruleJson;
-        return call(user, "review");
+        return call(user, "review", s -> s);
     }
 
-    private String call(String userMessage, String operation) {
+    // postProcess runs inside the try block so AiOutputParseException is captured in the timer outcome.
+    private <T> T call(String userMessage, String operation, Function<String, T> postProcess) {
         if (!properties.isEnabled()) {
             countError(operation, "disabled");
             throw new AiDisabledException("AI assistant is currently disabled");
@@ -82,8 +83,12 @@ public class SpringAiChatAdapter implements AiChatPort {
             ChatResponse response = chatModel.call(prompt);
             String text = response.getResult().getOutput().getText();
             recordMetrics(response, operation, system.length() + userMessage.length(), safeLen(text));
-            return text;
+            return postProcess.apply(text);
         } catch (AiDisabledException | AiQuotaExceededException | AiInputTooLargeException e) {
+            throw e;
+        } catch (AiOutputParseException e) {
+            outcome = "parse_error";
+            countError(operation, "parse_error");
             throw e;
         } catch (Exception e) {
             outcome = "server_error";
