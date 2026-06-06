@@ -9,3 +9,7 @@ spring:
 ai-assistant:
   chat:
     daily-token-limit: 0
+
+fee-engine:
+  base-url: http://localhost:0
+  timeout-seconds: 1
