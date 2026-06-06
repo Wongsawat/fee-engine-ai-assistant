@@ -49,7 +49,10 @@ public class ApproveDraftService implements ApproveDraftUseCase {
                         "Target rule " + draft.targetRuleId() + " was deleted; draft reset to PENDING — re-run dry-run or reject");
             }
             if (e.status() == 403) {
-                throw new FeeEnginePermissionDeniedException(draft.targetRuleId());
+                String msg = draft.type() == DraftType.UPDATE
+                        ? "Caller does not have permission to modify rule " + draft.targetRuleId()
+                        : "Caller does not have permission to create fee rules";
+                throw new FeeEnginePermissionDeniedException(msg);
             }
             throw e;
         }

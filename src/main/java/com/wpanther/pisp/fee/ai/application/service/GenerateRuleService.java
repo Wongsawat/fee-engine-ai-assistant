@@ -67,13 +67,16 @@ public class GenerateRuleService implements GenerateRuleUseCase {
     }
 
     private void validateAiOutput(String ruleJson) {
+        String preview = ruleJson == null ? "<null>" : ruleJson.substring(0, Math.min(500, ruleJson.length()));
         FeeRuleSchema schema;
         try {
             schema = objectMapper.readValue(ruleJson, FeeRuleSchema.class);
         } catch (AiOutputParseException e) {
             throw e;
         } catch (Exception e) {
-            throw new AiOutputParseException("AI output could not be parsed as a fee rule: " + e.getMessage());
+            throw new AiOutputParseException(
+                    "AI output could not be parsed as a fee rule: " + e.getMessage()
+                    + ". Rule JSON (500 chars): " + preview);
         }
 
         Set<ConstraintViolation<FeeRuleSchema>> violations = validator.validate(schema);
@@ -81,13 +84,14 @@ public class GenerateRuleService implements GenerateRuleUseCase {
             String msg = violations.stream()
                     .map(v -> v.getPropertyPath() + " " + v.getMessage())
                     .collect(Collectors.joining("; "));
-            throw new AiOutputParseException("AI output failed validation: " + msg);
+            throw new AiOutputParseException(
+                    "AI output failed validation: " + msg + ". Rule JSON (500 chars): " + preview);
         }
 
-        validateFeeTypeConstraints(schema);
+        validateFeeTypeConstraints(schema, preview);
     }
 
-    private void validateFeeTypeConstraints(FeeRuleSchema s) {
+    private void validateFeeTypeConstraints(FeeRuleSchema s, String preview) {
         String ft = s.feeType();
         switch (ft) {
             case "FLAT" -> {
@@ -117,8 +121,10 @@ public class GenerateRuleService implements GenerateRuleUseCase {
                 requireAbsent(s.minFee(), "feeType FREE must not set minFee");
                 requireAbsent(s.maxFee(), "feeType FREE must not set maxFee");
             }
-            // Unknown feeType values are caught upstream by bean validation (@NotBlank covers presence;
-            // fee-engine validates the enumerated values — we don't duplicate that enum list here).
+            // @NotBlank ensures feeType is non-blank but does not validate enumeration.
+            // Reject unknown values here rather than forwarding to fee-engine (fail fast).
+            default -> throw new AiOutputParseException(
+                    "AI output invalid: unknown feeType '" + ft + "'. Rule JSON (500 chars): " + preview);
         }
     }
 

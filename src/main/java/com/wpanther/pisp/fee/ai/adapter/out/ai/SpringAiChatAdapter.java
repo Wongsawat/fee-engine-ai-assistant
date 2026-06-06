@@ -133,14 +133,16 @@ public class SpringAiChatAdapter implements AiChatPort {
     }
 
     private GenerationResult parseGeneration(String content) {
+        String preview = content == null ? "<null>" : content.substring(0, Math.min(500, content.length()));
         JsonNode root;
         try {
             root = mapper.readTree(content);
         } catch (Exception e) {
-            throw new AiOutputParseException("AI returned non-JSON output");
+            throw new AiOutputParseException("AI returned non-JSON output. Raw (500 chars): " + preview);
         }
         if (root == null || !root.has("rule") || !root.has("explanation")) {
-            throw new AiOutputParseException("AI response missing 'rule' or 'explanation' field");
+            throw new AiOutputParseException(
+                    "AI response missing 'rule' or 'explanation' field. Raw (500 chars): " + preview);
         }
         return new GenerationResult(root.get("rule").toString(),
                 root.get("explanation").asText());

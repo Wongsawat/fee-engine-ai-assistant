@@ -88,12 +88,22 @@ class ApproveDraftServiceTest {
     }
 
     @Test
-    void approveForwardsFeeEngine403() {
+    void approveGenerateDraftFeeEngine403ThrowsWithCreateMessage() {
         when(repo.findById(id)).thenReturn(Optional.of(draft(DraftType.GENERATE, DraftStatus.DRY_RUN_PASSED, null)));
         when(feeEngine.create(any(), any())).thenThrow(new FeeEngineClientException(403, null));
         assertThatThrownBy(() -> service.approve(id, "tok"))
                 .isInstanceOf(FeeEnginePermissionDeniedException.class)
-                .hasMessageContaining("permission");
+                .hasMessageContaining("create fee rules");
+    }
+
+    @Test
+    void approveUpdateDraftFeeEngine403ThrowsWithRuleId() {
+        UUID target = UUID.randomUUID();
+        when(repo.findById(id)).thenReturn(Optional.of(draft(DraftType.UPDATE, DraftStatus.DRY_RUN_PASSED, target)));
+        when(feeEngine.update(eq(target), any(), any())).thenThrow(new FeeEngineClientException(403, null));
+        assertThatThrownBy(() -> service.approve(id, "tok"))
+                .isInstanceOf(FeeEnginePermissionDeniedException.class)
+                .hasMessageContaining(target.toString());
     }
 
     @Test

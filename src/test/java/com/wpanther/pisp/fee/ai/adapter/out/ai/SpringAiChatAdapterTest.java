@@ -27,6 +27,7 @@ class SpringAiChatAdapterTest {
     private ChatModel chatModel;
     private SpringAiChatAdapter adapter;
     private AiChatProperties properties;
+    private SimpleMeterRegistry registry;
 
     @BeforeEach
     void setUp() {
@@ -35,8 +36,9 @@ class SpringAiChatAdapterTest {
         schema.setFeeEngineSchemaVersion("V7");
         var loader = new SystemPromptLoader(schema);
         properties = new AiChatProperties();
-        var budget = new AiChatBudget(properties, new SimpleMeterRegistry());
-        adapter = new SpringAiChatAdapter(chatModel, loader, properties, budget, new SimpleMeterRegistry());
+        registry = new SimpleMeterRegistry();
+        var budget = new AiChatBudget(properties, registry);
+        adapter = new SpringAiChatAdapter(chatModel, loader, properties, budget, registry);
     }
 
     private void stubResponse(String text) {
@@ -56,14 +58,22 @@ class SpringAiChatAdapterTest {
     void throwsOnNonJson() {
         stubResponse("I cannot do that");
         assertThatThrownBy(() -> adapter.generate("x", ""))
-                .isInstanceOf(AiOutputParseException.class);
+                .isInstanceOf(AiOutputParseException.class)
+                .hasMessageContaining("I cannot do that");
+        assertThat(registry.counter("ai.assistant.chat.errors",
+                "operation", "generate", "error_type", "parse_error").count()).isEqualTo(1.0);
+        assertThat(registry.find("ai.assistant.chat.duration")
+                .tag("outcome", "parse_error").timer()).isNotNull();
     }
 
     @Test
     void throwsWhenRuleKeyMissing() {
         stubResponse("{\"explanation\":\"no rule here\"}");
         assertThatThrownBy(() -> adapter.generate("x", ""))
-                .isInstanceOf(AiOutputParseException.class);
+                .isInstanceOf(AiOutputParseException.class)
+                .hasMessageContaining("explanation");
+        assertThat(registry.counter("ai.assistant.chat.errors",
+                "operation", "generate", "error_type", "parse_error").count()).isEqualTo(1.0);
     }
 
     @Test
