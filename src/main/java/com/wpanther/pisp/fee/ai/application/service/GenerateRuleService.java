@@ -1,6 +1,8 @@
 package com.wpanther.pisp.fee.ai.application.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.wpanther.pisp.fee.ai.application.exception.AiOutputParseException;
 import com.wpanther.pisp.fee.ai.application.exception.InvalidDraftRequestException;
 import com.wpanther.pisp.fee.ai.application.exception.TargetRuleNotFoundException;
@@ -47,6 +49,7 @@ public class GenerateRuleService implements GenerateRuleUseCase {
         }
         GenerationResult result = aiChatPort.generate(command.prompt(), enrichment);
         String canonicalRule = canonicaliser.canonicalise(result.ruleJson());
+        canonicalRule = normaliseNumericFields(canonicalRule);
         validateAiOutput(canonicalRule);
 
         AiDraft draft = new AiDraft(
@@ -141,6 +144,38 @@ public class GenerateRuleService implements GenerateRuleUseCase {
     private static void requireAbsent(java.util.List<?> value, String message) {
         if (value != null && !value.isEmpty())
             throw new AiOutputParseException("AI output invalid: " + message);
+    }
+
+    private String normaliseNumericFields(String ruleJson) {
+        try {
+            ObjectNode node = (ObjectNode) objectMapper.readTree(ruleJson);
+            coerceToNumber(node, "flatAmount");
+            coerceToNumber(node, "percentage");
+            coerceToNumber(node, "minFee");
+            coerceToNumber(node, "maxFee");
+            JsonNode tiers = node.get("tiers");
+            if (tiers != null && tiers.isArray()) {
+                for (JsonNode tier : tiers) {
+                    if (tier instanceof ObjectNode t) {
+                        coerceToNumber(t, "min");
+                        coerceToNumber(t, "max");
+                        coerceToNumber(t, "amount");
+                    }
+                }
+            }
+            return objectMapper.writeValueAsString(node);
+        } catch (Exception e) {
+            return ruleJson;
+        }
+    }
+
+    private void coerceToNumber(ObjectNode node, String field) {
+        JsonNode val = node.get(field);
+        if (val != null && val.isTextual()) {
+            try {
+                node.put(field, new java.math.BigDecimal(val.asText()));
+            } catch (NumberFormatException ignored) {}
+        }
     }
 
     private String fetchEnrichment(java.util.UUID targetRuleId, String bearerToken) {
