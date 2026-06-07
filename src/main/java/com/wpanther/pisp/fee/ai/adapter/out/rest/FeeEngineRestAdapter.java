@@ -25,21 +25,22 @@ public class FeeEngineRestAdapter implements FeeEnginePort {
     }
 
     @Override
-    public DryRunResult dryRun(String ruleJson, String bearerToken) {
-        String wrapped = "{\"rule\":" + ruleJson + "}";
+    public DryRunResult dryRun(String ruleJson, String bearerToken,
+                               java.math.BigDecimal amount, String currency) {
+        String body = buildDryRunBody(ruleJson, amount, currency);
         var response = client.post()
                 .uri("/admin/fee-rules/dry-run")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + bearerToken)
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(wrapped)
+                .body(body)
                 .retrieve()
                 .onStatus(s -> true, (req, res) -> {})
                 .toEntity(String.class);
         int code = response.getStatusCode().value();
-        JsonNode body = parse(response.getBody());
-        if (code == 200) return new DryRunResult(true, body);
-        if (code == 400) return new DryRunResult(false, body);
-        throw new FeeEngineClientException(code, body);
+        JsonNode responseBody = parse(response.getBody());
+        if (code == 200) return new DryRunResult(true, responseBody);
+        if (code == 400) return new DryRunResult(false, responseBody);
+        throw new FeeEngineClientException(code, responseBody);
     }
 
     @Override
@@ -84,6 +85,22 @@ public class FeeEngineRestAdapter implements FeeEnginePort {
             return new FeeRuleResult(id, node);
         }
         throw new FeeEngineClientException(code, node);
+    }
+
+    private String buildDryRunBody(String ruleJson, java.math.BigDecimal amount, String currency) {
+        try {
+            com.fasterxml.jackson.databind.node.ObjectNode root = mapper.createObjectNode();
+            root.set("rule", mapper.readTree(ruleJson));
+            if (amount != null && currency != null && !currency.isBlank()) {
+                com.fasterxml.jackson.databind.node.ObjectNode amt = mapper.createObjectNode();
+                amt.put("amount", amount);
+                amt.put("currency", currency);
+                root.set("instructedAmount", amt);
+            }
+            return mapper.writeValueAsString(root);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to build dry-run request body", e);
+        }
     }
 
     private JsonNode parse(String body) {

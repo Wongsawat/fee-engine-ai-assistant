@@ -39,7 +39,7 @@ class FeeEngineRestAdapterTest {
         wm.stubFor(post("/admin/fee-rules/dry-run")
                 .withHeader("Authorization", equalTo("Bearer tok123"))
                 .willReturn(okJson("{\"charges\":[]}")));
-        DryRunResult result = adapter.dryRun("{\"feeType\":\"FREE\"}", "tok123");
+        DryRunResult result = adapter.dryRun("{\"feeType\":\"FREE\"}", "tok123", null, null);
         assertThat(result.passed()).isTrue();
         wm.verify(postRequestedFor(urlEqualTo("/admin/fee-rules/dry-run"))
                 .withHeader("Authorization", equalTo("Bearer tok123")));
@@ -49,7 +49,7 @@ class FeeEngineRestAdapterTest {
     void dryRun400IsFailed() {
         wm.stubFor(post("/admin/fee-rules/dry-run")
                 .willReturn(aResponse().withStatus(400).withBody("{\"detail\":\"bad\"}")));
-        DryRunResult result = adapter.dryRun("{}", "tok");
+        DryRunResult result = adapter.dryRun("{}", "tok", null, null);
         assertThat(result.passed()).isFalse();
     }
 

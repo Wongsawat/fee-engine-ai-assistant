@@ -8,6 +8,7 @@ import com.wpanther.pisp.fee.ai.domain.model.AiDraft;
 import com.wpanther.pisp.fee.ai.domain.model.DraftStatus;
 import com.wpanther.pisp.fee.ai.domain.model.DraftType;
 import jakarta.validation.Valid;
+import java.math.BigDecimal;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
@@ -88,9 +89,15 @@ public class DraftController {
         return ResponseEntity.noContent().build();
     }
 
+    record DryRunBody(BigDecimal amount, String currency) {}
+
     @PostMapping("/{id}/dry-run")
-    public DraftResponse dryRun(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
-        return mapper.toResponse(runDryRunUseCase.dryRun(id, jwt.getTokenValue()));
+    public DraftResponse dryRun(@PathVariable UUID id,
+                                @RequestBody(required = false) DryRunBody body,
+                                @AuthenticationPrincipal Jwt jwt) {
+        BigDecimal amount = body != null ? body.amount() : null;
+        String currency = body != null ? body.currency() : null;
+        return mapper.toResponse(runDryRunUseCase.dryRun(id, jwt.getTokenValue(), amount, currency));
     }
 
     @PostMapping("/{id}/approve")

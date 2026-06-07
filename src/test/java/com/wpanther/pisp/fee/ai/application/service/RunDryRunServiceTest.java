@@ -39,9 +39,9 @@ class RunDryRunServiceTest {
     @Test
     void passedDryRunSetsDryRunPassed() throws Exception {
         when(repo.findById(id)).thenReturn(Optional.of(draft(DraftType.GENERATE, DraftStatus.PENDING, null)));
-        when(feeEngine.dryRun(any(), eq("tok")))
+        when(feeEngine.dryRun(any(), eq("tok"), any(), any()))
                 .thenReturn(new DryRunResult(true, mapper.readTree("{\"charges\":[]}")));
-        AiDraft result = service.dryRun(id, "tok");
+        AiDraft result = service.dryRun(id, "tok", null, null);
         assertThat(result.status()).isEqualTo(DraftStatus.DRY_RUN_PASSED);
         assertThat(result.dryRunResult()).contains("charges");
     }
@@ -49,9 +49,9 @@ class RunDryRunServiceTest {
     @Test
     void failedDryRunSetsDryRunFailed() throws Exception {
         when(repo.findById(id)).thenReturn(Optional.of(draft(DraftType.GENERATE, DraftStatus.PENDING, null)));
-        when(feeEngine.dryRun(any(), any()))
+        when(feeEngine.dryRun(any(), any(), any(), any()))
                 .thenReturn(new DryRunResult(false, mapper.readTree("{\"detail\":\"bad\"}")));
-        AiDraft result = service.dryRun(id, "tok");
+        AiDraft result = service.dryRun(id, "tok", null, null);
         assertThat(result.status()).isEqualTo(DraftStatus.DRY_RUN_FAILED);
     }
 
@@ -60,27 +60,27 @@ class RunDryRunServiceTest {
         UUID target = UUID.randomUUID();
         when(repo.findById(id)).thenReturn(Optional.of(draft(DraftType.UPDATE, DraftStatus.PENDING, target)));
         when(feeEngine.fetchRule(eq(target), any())).thenThrow(new FeeEngineClientException(404, null));
-        assertThatThrownBy(() -> service.dryRun(id, "tok")).isInstanceOf(TargetRuleNotFoundException.class);
+        assertThatThrownBy(() -> service.dryRun(id, "tok", null, null)).isInstanceOf(TargetRuleNotFoundException.class);
     }
 
     @Test
     void reDryRunFromDryRunFailedRecomputesStatus() throws Exception {
         when(repo.findById(id)).thenReturn(Optional.of(draft(DraftType.GENERATE, DraftStatus.DRY_RUN_FAILED, null)));
-        when(feeEngine.dryRun(any(), any()))
+        when(feeEngine.dryRun(any(), any(), any(), any()))
                 .thenReturn(new DryRunResult(true, mapper.readTree("{\"charges\":[]}")));
-        AiDraft result = service.dryRun(id, "tok");
+        AiDraft result = service.dryRun(id, "tok", null, null);
         assertThat(result.status()).isEqualTo(DraftStatus.DRY_RUN_PASSED);
     }
 
     @Test
     void dryRunFromTerminalStatusThrows409() {
         when(repo.findById(id)).thenReturn(Optional.of(draft(DraftType.GENERATE, DraftStatus.APPROVED, null)));
-        assertThatThrownBy(() -> service.dryRun(id, "tok")).isInstanceOf(InvalidDraftStatusException.class);
+        assertThatThrownBy(() -> service.dryRun(id, "tok", null, null)).isInstanceOf(InvalidDraftStatusException.class);
     }
 
     @Test
     void dryRunFromDryRunPassedIsRejected() {
         when(repo.findById(id)).thenReturn(Optional.of(draft(DraftType.GENERATE, DraftStatus.DRY_RUN_PASSED, null)));
-        assertThatThrownBy(() -> service.dryRun(id, "tok")).isInstanceOf(InvalidDraftStatusException.class);
+        assertThatThrownBy(() -> service.dryRun(id, "tok", null, null)).isInstanceOf(InvalidDraftStatusException.class);
     }
 }

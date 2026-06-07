@@ -13,6 +13,7 @@ import com.wpanther.pisp.fee.ai.domain.model.DraftStatus;
 import com.wpanther.pisp.fee.ai.domain.model.DraftType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.math.BigDecimal;
 import java.util.UUID;
 
 @Service
@@ -28,7 +29,7 @@ public class RunDryRunService implements RunDryRunUseCase {
 
     @Override
     @Transactional
-    public AiDraft dryRun(UUID id, String bearerToken) {
+    public AiDraft dryRun(UUID id, String bearerToken, BigDecimal amount, String currency) {
         AiDraft draft = repository.findById(id)
                 .orElseThrow(() -> new DraftNotFoundException("Draft " + id + " not found"));
 
@@ -42,7 +43,7 @@ public class RunDryRunService implements RunDryRunUseCase {
 
         // Re-running from DRY_RUN_FAILED: new status/dryRunResult fully overwrite the prior
         // failed result; no separate PENDING write is persisted.
-        DryRunResult result = feeEnginePort.dryRun(draft.ruleJson(), bearerToken);
+        DryRunResult result = feeEnginePort.dryRun(draft.ruleJson(), bearerToken, amount, currency);
         DraftStatus newStatus = result.passed() ? DraftStatus.DRY_RUN_PASSED : DraftStatus.DRY_RUN_FAILED;
 
         AiDraft updated = new AiDraft(
