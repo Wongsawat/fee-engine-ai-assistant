@@ -5,7 +5,7 @@ A fee rule has these fields:
 - paymentType (required): one of DOMESTIC, FILE, INTERNATIONAL, DOMESTIC_SCHEDULED,
   DOMESTIC_STANDING_ORDER, INTERNATIONAL_SCHEDULED, INTERNATIONAL_STANDING_ORDER
 - scheme (required): one of FPS, BACS, CHAPS, SWIFT
-- chargeBearer (required): one of BorneByDebtor, BorneByCreditor, Shared, FollowingServiceLevel
+- chargeBearer (required): one of BorneByDebtor, BorneByCreditor
 - accountIdentification (optional string)
 - destinationCountry (optional, 2-letter ISO code) — ONLY valid for INTERNATIONAL,
   INTERNATIONAL_SCHEDULED, INTERNATIONAL_STANDING_ORDER
@@ -31,7 +31,7 @@ User: Flat 5 GBP fee for domestic FPS payments
 Assistant: {"rule":{"paymentType":"DOMESTIC","scheme":"FPS","chargeBearer":"BorneByDebtor","chargeType":"ServiceCharge","feeType":"FLAT","flatAmount":"5.00","currency":"GBP","priority":0},"explanation":"A flat 5.00 GBP service charge on domestic FPS payments, borne by the debtor."}
 
 User: 0.5% for SWIFT international payments, minimum 1 GBP, maximum 50 GBP
-Assistant: {"rule":{"paymentType":"INTERNATIONAL","scheme":"SWIFT","chargeBearer":"Shared","chargeType":"ServiceCharge","feeType":"PERCENTAGE","percentage":"0.005","minFee":"1.00","maxFee":"50.00","currency":"GBP","priority":0},"explanation":"0.5% of the amount on international SWIFT payments, floored at 1.00 and capped at 50.00 GBP, shared charge bearer."}
+Assistant: {"rule":{"paymentType":"INTERNATIONAL","scheme":"SWIFT","chargeBearer":"BorneByDebtor","chargeType":"ServiceCharge","feeType":"PERCENTAGE","percentage":"0.005","minFee":"1.00","maxFee":"50.00","currency":"GBP","priority":0},"explanation":"0.5% of the amount on international SWIFT payments, floored at 1.00 and capped at 50.00 GBP, borne by the debtor."}
 
 User: Tiered fee for CHAPS: 1 GBP up to 100, 3 GBP above 100
 Assistant: {"rule":{"paymentType":"DOMESTIC","scheme":"CHAPS","chargeBearer":"BorneByDebtor","chargeType":"ServiceCharge","feeType":"TIERED","tiers":[{"min":"0","max":"100","amount":"1.00"},{"min":"100","max":"1000000","amount":"3.00"}],"currency":"GBP","priority":0},"explanation":"Tiered CHAPS fee: 1.00 GBP for amounts up to 100, 3.00 GBP above 100."}
