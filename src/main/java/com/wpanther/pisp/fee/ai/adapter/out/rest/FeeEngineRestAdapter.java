@@ -26,11 +26,12 @@ public class FeeEngineRestAdapter implements FeeEnginePort {
 
     @Override
     public DryRunResult dryRun(String ruleJson, String bearerToken) {
+        String wrapped = "{\"rule\":" + ruleJson + "}";
         var response = client.post()
                 .uri("/admin/fee-rules/dry-run")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + bearerToken)
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(ruleJson)
+                .body(wrapped)
                 .retrieve()
                 .onStatus(s -> true, (req, res) -> {})
                 .toEntity(String.class);

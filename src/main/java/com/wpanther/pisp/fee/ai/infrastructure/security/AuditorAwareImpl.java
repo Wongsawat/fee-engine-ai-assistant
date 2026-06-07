@@ -14,6 +14,7 @@ public class AuditorAwareImpl implements AuditorAware<String> {
         if (auth == null || !auth.isAuthenticated() || auth instanceof AnonymousAuthenticationToken) {
             return Optional.of("system");
         }
-        return Optional.of(auth.getName());
+        String name = auth.getName();
+        return Optional.of(name != null ? name : "system");
     }
 }
