@@ -10,13 +10,32 @@ A fee rule has these fields:
 - destinationCountry (optional, 2-letter ISO code) — ONLY valid for INTERNATIONAL,
   INTERNATIONAL_SCHEDULED, INTERNATIONAL_STANDING_ORDER
 - chargeType (required string)
-- feeType (required): one of FLAT, PERCENTAGE, TIERED, FREE
+- feeType (required): one of FLAT, PERCENTAGE, TIERED_SLAB, TIERED_STEP, FREE
 - flatAmount (required iff feeType=FLAT)
 - percentage (required iff feeType=PERCENTAGE; decimal fraction, e.g. 0.005 for 0.5%)
 - minFee, maxFee (optional, ONLY for feeType=PERCENTAGE; both > 0; minFee <= maxFee)
-- tiers (required iff feeType=TIERED): array of {min, max, amount}
+- tiers (required iff feeType=TIERED_SLAB or TIERED_STEP): array of tier objects
 - currency (required, 3-letter ISO code)
 - priority (optional integer >= 0; default 0; higher wins)
+
+Tier object fields:
+- min, max (required): bracket bounds (inclusive min, exclusive max)
+- rateType (required): one of FIXED, PERCENTAGE, HYBRID, GREATER_OF
+- amount: flat or base fee (required for FIXED, HYBRID, GREATER_OF; omit for PERCENTAGE)
+- percentage: decimal rate (required for PERCENTAGE, HYBRID, GREATER_OF; omit for FIXED),
+  e.g. 0.03 for 3%; must satisfy 0 < percentage <= 1
+
+Tier rateType formulas:
+- FIXED:      charges tier.amount flat (for TIERED_STEP, the flat fee fires once per bracket entered)
+- PERCENTAGE: charges txnAmount x percentage
+- HYBRID:     charges amount + txnAmount x percentage
+- GREATER_OF: charges max(amount, txnAmount x percentage)
+
+Distribution modes:
+- TIERED_SLAB: finds the one tier where min <= amount < max; applies that tier's formula to
+  the FULL transaction amount
+- TIERED_STEP: every tier where amount > min fires; each applies its formula to only the
+  PORTION of amount within that bracket (min(amount, max) - min); results are summed
 
 Rules:
 - FREE fee type must NOT carry flatAmount, percentage, or tiers.
@@ -33,5 +52,11 @@ Assistant: {"rule":{"paymentType":"DOMESTIC","scheme":"FPS","chargeBearer":"Born
 User: 0.5% for SWIFT international payments, minimum 1 GBP, maximum 50 GBP
 Assistant: {"rule":{"paymentType":"INTERNATIONAL","scheme":"SWIFT","chargeBearer":"BorneByDebtor","chargeType":"ServiceCharge","feeType":"PERCENTAGE","percentage":"0.005","minFee":"1.00","maxFee":"50.00","currency":"GBP","priority":0},"explanation":"0.5% of the amount on international SWIFT payments, floored at 1.00 and capped at 50.00 GBP, borne by the debtor."}
 
-User: Tiered fee for CHAPS: 1 GBP up to 100, 3 GBP above 100
-Assistant: {"rule":{"paymentType":"DOMESTIC","scheme":"CHAPS","chargeBearer":"BorneByDebtor","chargeType":"ServiceCharge","feeType":"TIERED","tiers":[{"min":"0","max":"100","amount":"1.00"},{"min":"100","max":"1000000","amount":"3.00"}],"currency":"GBP","priority":0},"explanation":"Tiered CHAPS fee: 1.00 GBP for amounts up to 100, 3.00 GBP above 100."}
+User: Tiered slab fee for CHAPS: flat 1 GBP up to 100, flat 3 GBP above 100
+Assistant: {"rule":{"paymentType":"DOMESTIC","scheme":"CHAPS","chargeBearer":"BorneByDebtor","chargeType":"ServiceCharge","feeType":"TIERED_SLAB","tiers":[{"min":"0","max":"100","rateType":"FIXED","amount":"1.00"},{"min":"100","max":"1000000","rateType":"FIXED","amount":"3.00"}],"currency":"GBP","priority":0},"explanation":"Tiered slab CHAPS fee: 1.00 GBP flat for amounts up to 100, 3.00 GBP flat for amounts of 100 and above (full-amount pricing)."}
+
+User: Progressive tiered SWIFT fee: 3% on first 10000, 2% on 10000-50000, 1% above 50000
+Assistant: {"rule":{"paymentType":"INTERNATIONAL","scheme":"SWIFT","chargeBearer":"BorneByDebtor","chargeType":"ServiceCharge","feeType":"TIERED_STEP","tiers":[{"min":"0","max":"10000","rateType":"PERCENTAGE","percentage":"0.03"},{"min":"10000","max":"50000","rateType":"PERCENTAGE","percentage":"0.02"},{"min":"50000","max":"999999999","rateType":"PERCENTAGE","percentage":"0.01"}],"currency":"GBP","priority":0},"explanation":"Progressive (step) SWIFT fee: 3% on the first 10,000 GBP, 2% on the 10,000-50,000 bracket, 1% on amounts above 50,000. Charges are summed across all entered brackets."}
+
+User: Hybrid slab fee for BACS domestic: base 2 GBP plus 0.5% for amounts 0-1000, base 5 GBP plus 0.3% for amounts above 1000
+Assistant: {"rule":{"paymentType":"DOMESTIC","scheme":"BACS","chargeBearer":"BorneByDebtor","chargeType":"ServiceCharge","feeType":"TIERED_SLAB","tiers":[{"min":"0","max":"1000","rateType":"HYBRID","amount":"2.00","percentage":"0.005"},{"min":"1000","max":"999999999","rateType":"HYBRID","amount":"5.00","percentage":"0.003"}],"currency":"GBP","priority":0},"explanation":"Tiered slab BACS fee: 2.00 GBP base + 0.5% for amounts below 1,000; 5.00 GBP base + 0.3% for amounts of 1,000 and above (full-amount pricing per matched tier)."}

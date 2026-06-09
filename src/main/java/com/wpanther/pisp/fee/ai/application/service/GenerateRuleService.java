@@ -109,13 +109,12 @@ public class GenerateRuleService implements GenerateRuleUseCase {
                 requireAbsent(s.flatAmount(), "feeType PERCENTAGE must not set flatAmount");
                 requireAbsent(s.tiers(), "feeType PERCENTAGE must not set tiers");
             }
-            case "TIERED" -> {
-                if (s.tiers() == null || s.tiers().isEmpty())
-                    throw new AiOutputParseException("AI output invalid: feeType TIERED requires at least one tier");
-                requireAbsent(s.flatAmount(), "feeType TIERED must not set flatAmount");
-                requireAbsent(s.percentage(), "feeType TIERED must not set percentage");
-                requireAbsent(s.minFee(), "feeType TIERED must not set minFee");
-                requireAbsent(s.maxFee(), "feeType TIERED must not set maxFee");
+            case "TIERED_SLAB", "TIERED_STEP" -> {
+                validateTiers(s.tiers(), ft);
+                requireAbsent(s.flatAmount(), "feeType " + ft + " must not set flatAmount");
+                requireAbsent(s.percentage(), "feeType " + ft + " must not set percentage");
+                requireAbsent(s.minFee(), "feeType " + ft + " must not set minFee");
+                requireAbsent(s.maxFee(), "feeType " + ft + " must not set maxFee");
             }
             case "FREE" -> {
                 requireAbsent(s.flatAmount(), "feeType FREE must not set flatAmount");
@@ -128,6 +127,42 @@ public class GenerateRuleService implements GenerateRuleUseCase {
             // Reject unknown values here rather than forwarding to fee-engine (fail fast).
             default -> throw new AiOutputParseException(
                     "AI output invalid: unknown feeType '" + ft + "'. Rule JSON (500 chars): " + preview);
+        }
+    }
+
+    private void validateTiers(java.util.List<FeeRuleSchema.Tier> tiers, String feeType) {
+        if (tiers == null || tiers.isEmpty())
+            throw new AiOutputParseException("AI output invalid: feeType " + feeType + " requires at least one tier");
+        for (FeeRuleSchema.Tier tier : tiers) {
+            String rt = tier.rateType();
+            switch (rt) {
+                case "FIXED" -> {
+                    if (tier.amount() == null || tier.amount().isBlank())
+                        throw new AiOutputParseException("AI output invalid: FIXED tier requires amount");
+                    if (tier.percentage() != null && !tier.percentage().isBlank())
+                        throw new AiOutputParseException("AI output invalid: FIXED tier must not set percentage");
+                }
+                case "PERCENTAGE" -> {
+                    if (tier.percentage() == null || tier.percentage().isBlank())
+                        throw new AiOutputParseException("AI output invalid: PERCENTAGE tier requires percentage");
+                    if (tier.amount() != null && !tier.amount().isBlank())
+                        throw new AiOutputParseException("AI output invalid: PERCENTAGE tier must not set amount");
+                }
+                case "HYBRID" -> {
+                    if (tier.amount() == null || tier.amount().isBlank())
+                        throw new AiOutputParseException("AI output invalid: HYBRID tier requires amount");
+                    if (tier.percentage() == null || tier.percentage().isBlank())
+                        throw new AiOutputParseException("AI output invalid: HYBRID tier requires percentage");
+                }
+                case "GREATER_OF" -> {
+                    if (tier.amount() == null || tier.amount().isBlank())
+                        throw new AiOutputParseException("AI output invalid: GREATER_OF tier requires amount");
+                    if (tier.percentage() == null || tier.percentage().isBlank())
+                        throw new AiOutputParseException("AI output invalid: GREATER_OF tier requires percentage");
+                }
+                default -> throw new AiOutputParseException(
+                        "AI output invalid: unknown tier rateType '" + rt + "'");
+            }
         }
     }
 
@@ -160,6 +195,7 @@ public class GenerateRuleService implements GenerateRuleUseCase {
                         coerceToNumber(t, "min");
                         coerceToNumber(t, "max");
                         coerceToNumber(t, "amount");
+                        coerceToNumber(t, "percentage");
                     }
                 }
             }

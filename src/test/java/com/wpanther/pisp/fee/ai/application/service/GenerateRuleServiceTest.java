@@ -114,14 +114,104 @@ class GenerateRuleServiceTest {
     }
 
     @Test
-    void tieredFeeTypeMissingTiersThrows() {
+    void tieredSlabFeeTypeMissingTiersThrows() {
         when(aiChatPort.generate(any(), any()))
                 .thenReturn(new GenerationResult(
                         "{\"paymentType\":\"DOMESTIC\",\"scheme\":\"CHAPS\",\"chargeBearer\":\"BorneByDebtor\","
-                        + "\"chargeType\":\"ServiceCharge\",\"feeType\":\"TIERED\",\"currency\":\"GBP\"}", "oops"));
+                        + "\"chargeType\":\"ServiceCharge\",\"feeType\":\"TIERED_SLAB\",\"currency\":\"GBP\"}", "oops"));
         assertThatThrownBy(() -> service.generate(new GenerateCommand("x", DraftType.GENERATE, null), "tok"))
                 .isInstanceOf(com.wpanther.pisp.fee.ai.application.exception.AiOutputParseException.class)
                 .hasMessageContaining("tier");
+    }
+
+    @Test
+    void tieredStepFeeTypeMissingTiersThrows() {
+        when(aiChatPort.generate(any(), any()))
+                .thenReturn(new GenerationResult(
+                        "{\"paymentType\":\"DOMESTIC\",\"scheme\":\"CHAPS\",\"chargeBearer\":\"BorneByDebtor\","
+                        + "\"chargeType\":\"ServiceCharge\",\"feeType\":\"TIERED_STEP\",\"currency\":\"GBP\"}", "oops"));
+        assertThatThrownBy(() -> service.generate(new GenerateCommand("x", DraftType.GENERATE, null), "tok"))
+                .isInstanceOf(com.wpanther.pisp.fee.ai.application.exception.AiOutputParseException.class)
+                .hasMessageContaining("tier");
+    }
+
+    @Test
+    void legacyTieredFeeTypeIsRejected() {
+        when(aiChatPort.generate(any(), any()))
+                .thenReturn(new GenerationResult(
+                        "{\"paymentType\":\"DOMESTIC\",\"scheme\":\"CHAPS\",\"chargeBearer\":\"BorneByDebtor\","
+                        + "\"chargeType\":\"ServiceCharge\",\"feeType\":\"TIERED\","
+                        + "\"tiers\":[{\"min\":\"0\",\"max\":\"100\",\"rateType\":\"FIXED\",\"amount\":\"1.00\"}],"
+                        + "\"currency\":\"GBP\"}", "oops"));
+        assertThatThrownBy(() -> service.generate(new GenerateCommand("x", DraftType.GENERATE, null), "tok"))
+                .isInstanceOf(com.wpanther.pisp.fee.ai.application.exception.AiOutputParseException.class)
+                .hasMessageContaining("TIERED");
+    }
+
+    @Test
+    void tieredSlabWithFixedTierIsAccepted() {
+        when(aiChatPort.generate(any(), any()))
+                .thenReturn(new GenerationResult(
+                        "{\"paymentType\":\"DOMESTIC\",\"scheme\":\"CHAPS\",\"chargeBearer\":\"BorneByDebtor\","
+                        + "\"chargeType\":\"ServiceCharge\",\"feeType\":\"TIERED_SLAB\","
+                        + "\"tiers\":[{\"min\":\"0\",\"max\":\"100\",\"rateType\":\"FIXED\",\"amount\":\"1.00\"},"
+                        + "{\"min\":\"100\",\"max\":\"1000000\",\"rateType\":\"FIXED\",\"amount\":\"3.00\"}],"
+                        + "\"currency\":\"GBP\"}", "ok"));
+        AiDraft draft = service.generate(new GenerateCommand("x", DraftType.GENERATE, null), "tok");
+        assertThat(draft.status()).isEqualTo(DraftStatus.PENDING);
+    }
+
+    @Test
+    void tieredStepWithPercentageTiersIsAccepted() {
+        when(aiChatPort.generate(any(), any()))
+                .thenReturn(new GenerationResult(
+                        "{\"paymentType\":\"INTERNATIONAL\",\"scheme\":\"SWIFT\",\"chargeBearer\":\"BorneByDebtor\","
+                        + "\"chargeType\":\"ServiceCharge\",\"feeType\":\"TIERED_STEP\","
+                        + "\"tiers\":[{\"min\":\"0\",\"max\":\"10000\",\"rateType\":\"PERCENTAGE\",\"percentage\":\"0.03\"},"
+                        + "{\"min\":\"10000\",\"max\":\"50000\",\"rateType\":\"PERCENTAGE\",\"percentage\":\"0.02\"}],"
+                        + "\"currency\":\"GBP\"}", "ok"));
+        AiDraft draft = service.generate(new GenerateCommand("x", DraftType.GENERATE, null), "tok");
+        assertThat(draft.status()).isEqualTo(DraftStatus.PENDING);
+    }
+
+    @Test
+    void tieredFixedTierMissingAmountThrows() {
+        when(aiChatPort.generate(any(), any()))
+                .thenReturn(new GenerationResult(
+                        "{\"paymentType\":\"DOMESTIC\",\"scheme\":\"CHAPS\",\"chargeBearer\":\"BorneByDebtor\","
+                        + "\"chargeType\":\"ServiceCharge\",\"feeType\":\"TIERED_SLAB\","
+                        + "\"tiers\":[{\"min\":\"0\",\"max\":\"100\",\"rateType\":\"FIXED\"}],"
+                        + "\"currency\":\"GBP\"}", "oops"));
+        assertThatThrownBy(() -> service.generate(new GenerateCommand("x", DraftType.GENERATE, null), "tok"))
+                .isInstanceOf(com.wpanther.pisp.fee.ai.application.exception.AiOutputParseException.class)
+                .hasMessageContaining("amount");
+    }
+
+    @Test
+    void tieredPercentageTierWithAmountPresentThrows() {
+        when(aiChatPort.generate(any(), any()))
+                .thenReturn(new GenerationResult(
+                        "{\"paymentType\":\"DOMESTIC\",\"scheme\":\"CHAPS\",\"chargeBearer\":\"BorneByDebtor\","
+                        + "\"chargeType\":\"ServiceCharge\",\"feeType\":\"TIERED_SLAB\","
+                        + "\"tiers\":[{\"min\":\"0\",\"max\":\"100\",\"rateType\":\"PERCENTAGE\","
+                        + "\"percentage\":\"0.03\",\"amount\":\"5.00\"}],"
+                        + "\"currency\":\"GBP\"}", "oops"));
+        assertThatThrownBy(() -> service.generate(new GenerateCommand("x", DraftType.GENERATE, null), "tok"))
+                .isInstanceOf(com.wpanther.pisp.fee.ai.application.exception.AiOutputParseException.class)
+                .hasMessageContaining("amount");
+    }
+
+    @Test
+    void tieredUnknownRateTypeThrows() {
+        when(aiChatPort.generate(any(), any()))
+                .thenReturn(new GenerationResult(
+                        "{\"paymentType\":\"DOMESTIC\",\"scheme\":\"CHAPS\",\"chargeBearer\":\"BorneByDebtor\","
+                        + "\"chargeType\":\"ServiceCharge\",\"feeType\":\"TIERED_SLAB\","
+                        + "\"tiers\":[{\"min\":\"0\",\"max\":\"100\",\"rateType\":\"FLAT\",\"amount\":\"1.00\"}],"
+                        + "\"currency\":\"GBP\"}", "oops"));
+        assertThatThrownBy(() -> service.generate(new GenerateCommand("x", DraftType.GENERATE, null), "tok"))
+                .isInstanceOf(com.wpanther.pisp.fee.ai.application.exception.AiOutputParseException.class)
+                .hasMessageContaining("rateType");
     }
 
     @Test

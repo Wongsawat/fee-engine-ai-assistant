@@ -26,5 +26,11 @@ public record FeeRuleSchema(
         @NotBlank String currency,
         Integer priority
 ) {
-    public record Tier(@NotNull String min, @NotNull String max, @NotNull String amount) {}
+    public record Tier(
+            @NotNull String min,
+            @NotNull String max,
+            @NotNull String rateType,
+            String amount,
+            String percentage
+    ) {}
 }

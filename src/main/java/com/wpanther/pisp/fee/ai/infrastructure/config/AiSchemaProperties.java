@@ -9,7 +9,7 @@ import org.springframework.validation.annotation.Validated;
 public class AiSchemaProperties {
 
     @NotBlank
-    private String feeEngineSchemaVersion = "V7";
+    private String feeEngineSchemaVersion = "V8";
 
     public String getFeeEngineSchemaVersion() { return feeEngineSchemaVersion; }
     public void setFeeEngineSchemaVersion(String v) { this.feeEngineSchemaVersion = v; }
