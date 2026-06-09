@@ -79,8 +79,12 @@ class RunDryRunServiceTest {
     }
 
     @Test
-    void dryRunFromDryRunPassedIsRejected() {
+    void reDryRunFromDryRunPassedRecomputesResult() throws Exception {
         when(repo.findById(id)).thenReturn(Optional.of(draft(DraftType.GENERATE, DraftStatus.DRY_RUN_PASSED, null)));
-        assertThatThrownBy(() -> service.dryRun(id, "tok", null, null)).isInstanceOf(InvalidDraftStatusException.class);
+        when(feeEngine.dryRun(any(), any(), any(), any()))
+                .thenReturn(new DryRunResult(true, mapper.readTree("{\"charges\":[{\"amount\":\"25.00\"}]}")));
+        AiDraft result = service.dryRun(id, "tok", null, null);
+        assertThat(result.status()).isEqualTo(DraftStatus.DRY_RUN_PASSED);
+        assertThat(result.dryRunResult()).contains("25.00");
     }
 }

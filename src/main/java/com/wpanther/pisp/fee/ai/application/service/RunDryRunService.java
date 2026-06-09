@@ -33,7 +33,9 @@ public class RunDryRunService implements RunDryRunUseCase {
         AiDraft draft = repository.findById(id)
                 .orElseThrow(() -> new DraftNotFoundException("Draft " + id + " not found"));
 
-        if (draft.status() != DraftStatus.PENDING && draft.status() != DraftStatus.DRY_RUN_FAILED) {
+        if (draft.status() != DraftStatus.PENDING
+                && draft.status() != DraftStatus.DRY_RUN_FAILED
+                && draft.status() != DraftStatus.DRY_RUN_PASSED) {
             throw new InvalidDraftStatusException("Cannot dry-run a draft in status " + draft.status());
         }
 
