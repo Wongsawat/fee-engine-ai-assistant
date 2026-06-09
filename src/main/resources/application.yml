@@ -36,7 +36,7 @@ ai-assistant:
     prompt-redact-days: ${PROMPT_REDACT_DAYS:30}
     purge-days: ${DRAFT_PURGE_DAYS:90}
   schema:
-    fee-engine-schema-version: ${FEE_ENGINE_SCHEMA_VERSION:V7}
+    fee-engine-schema-version: ${FEE_ENGINE_SCHEMA_VERSION:V8}
 
 fee-engine:
   base-url: ${FEE_ENGINE_BASE_URL:http://localhost:8080}
