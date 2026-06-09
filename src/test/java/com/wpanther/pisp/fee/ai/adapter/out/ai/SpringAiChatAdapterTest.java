@@ -77,6 +77,21 @@ class SpringAiChatAdapterTest {
     }
 
     @Test
+    void stripsJsonCodeFenceBeforeParsing() {
+        stubResponse("```json\n{\"rule\":{\"feeType\":\"FREE\"},\"explanation\":\"free\"}\n```");
+        GenerationResult result = adapter.generate("free for FPS", "");
+        assertThat(result.ruleJson()).contains("FREE");
+        assertThat(result.explanation()).isEqualTo("free");
+    }
+
+    @Test
+    void stripsPlainCodeFenceBeforeParsing() {
+        stubResponse("```\n{\"rule\":{\"feeType\":\"FREE\"},\"explanation\":\"free\"}\n```");
+        GenerationResult result = adapter.generate("free for FPS", "");
+        assertThat(result.ruleJson()).contains("FREE");
+    }
+
+    @Test
     void rejectsOversizedCombinedPrompt() {
         properties.setMaxInputChars(10);
         assertThatThrownBy(() -> adapter.generate("a very long natural language prompt", ""))

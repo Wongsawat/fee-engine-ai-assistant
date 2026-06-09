@@ -133,10 +133,11 @@ public class SpringAiChatAdapter implements AiChatPort {
     }
 
     private GenerationResult parseGeneration(String content) {
-        String preview = content == null ? "<null>" : content.substring(0, Math.min(500, content.length()));
+        String stripped = stripCodeFence(content);
+        String preview = stripped == null ? "<null>" : stripped.substring(0, Math.min(500, stripped.length()));
         JsonNode root;
         try {
-            root = mapper.readTree(content);
+            root = mapper.readTree(stripped);
         } catch (Exception e) {
             throw new AiOutputParseException("AI returned non-JSON output. Raw (500 chars): " + preview);
         }
@@ -146,6 +147,18 @@ public class SpringAiChatAdapter implements AiChatPort {
         }
         return new GenerationResult(root.get("rule").toString(),
                 root.get("explanation").asText());
+    }
+
+    /** Strips a leading ```(lang) / trailing ``` markdown code fence if present. */
+    private static String stripCodeFence(String content) {
+        if (content == null) return null;
+        String s = content.strip();
+        if (!s.startsWith("```")) return s;
+        int firstNewline = s.indexOf('\n');
+        if (firstNewline == -1) return s;
+        s = s.substring(firstNewline + 1);
+        if (s.endsWith("```")) s = s.substring(0, s.lastIndexOf("```")).stripTrailing();
+        return s.strip();
     }
 
     private int safeLen(String s) { return s == null ? 0 : s.length(); }
