@@ -76,7 +76,7 @@ sequenceDiagram
 - **Step 8 — Budget & guards:** Before calling the model, the adapter checks: AI enabled flag (503 if disabled), daily token budget (429 if exceeded), and combined prompt size against `maxInputChars` (422 if too large).
 - **Step 9 — canonicalise:** `JsonCanonicaliser` parses the AI's rule JSON and re-serialises with alphabetically sorted keys. This ensures deterministic storage regardless of the model's key ordering.
 - **Step 10 — Schema validation:** The canonical JSON is parsed into `FeeRuleSchema` and validated via Bean Validation (`@NotBlank` on required fields like `paymentType`, `scheme`, `chargeBearer`, `feeType`, `currency`).
-- **Step 11 — Fee-type constraints:** `validateFeeTypeConstraints()` enforces cross-field rules per fee type — e.g. FLAT requires `flatAmount` and forbids `percentage`/`tiers`; FREE forbids all amount fields. Unknown fee types are rejected. Failures throw `AiOutputParseException` → 422.
+- **Step 11 — Fee-type constraints:** `validateFeeTypeConstraints()` enforces cross-field rules per fee type — e.g. FLAT requires `flatAmount` and forbids `percentage`/`tiers`; TIERED_SLAB/TIERED_STEP require `tiers` with per-tier `rateType` validation (FIXED requires `amount`, PERCENTAGE requires `percentage`, HYBRID/GREATER_OF require both); FREE forbids all amount fields. The legacy `TIERED` fee type and unknown values are rejected. Failures throw `AiOutputParseException` → 422.
 - **Step 12 — Persist draft:** A new `AiDraft` is created with status `PENDING` and saved via the repository adapter. JPA auditing populates `createdAt` and `createdBy` from the JWT `sub` claim.
 - **Step 13 — 201 Created:** Controller returns the created draft with a `Location` header pointing to `/ai/drafts/{id}`.
 
@@ -155,9 +155,12 @@ flowchart TD
     I -->|No| F
     I -->|Yes| Z
 
-    D -->|TIERED| J{tiers present and non-empty?}
+    D -->|TIERED_SLAB / TIERED_STEP| J{tiers present and non-empty?}
     J -->|No| F
-    J -->|Yes| K{flatAmount, percentage, minFee, maxFee absent?}
+    J -->|Yes| J2[validateTiers: per-tier rateType check]
+    J2 --> J3{All tiers valid?}
+    J3 -->|No| F
+    J3 -->|Yes| K{flatAmount, percentage, minFee, maxFee absent?}
     K -->|No| F
     K -->|Yes| Z
 
@@ -165,7 +168,7 @@ flowchart TD
     L -->|No| F
     L -->|Yes| Z
 
-    D -->|Unknown| M[Reject: unknown feeType]
+    D -->|Unknown / legacy TIERED| M[Reject: unknown feeType]
 
     style F fill:#ffcdd2
     style Z fill:#c8e6c9
@@ -178,9 +181,10 @@ flowchart TD
 - **Bean Validation:** Standard `@NotBlank` constraints on `paymentType`, `scheme`, `chargeBearer`, `chargeType`, `feeType`, `currency`. These run first and catch structurally incomplete outputs.
 - **FLAT:** Requires `flatAmount` to be present and non-blank. Forbids `percentage`, `tiers`, `minFee`, `maxFee`. These fields would be meaningless for a fixed-amount fee.
 - **PERCENTAGE:** Requires `percentage` to be present and non-blank. Forbids `flatAmount` and `tiers`. `minFee`/`maxFee` are allowed (they cap the percentage-based charge).
-- **TIERED:** Requires `tiers` list to be non-null and non-empty. Forbids `flatAmount`, `percentage`, `minFee`, `maxFee`. Tier amount lookups replace all other fee calculation logic.
+- **TIERED_SLAB / TIERED_STEP:** Requires `tiers` list to be non-null and non-empty. Forbids `flatAmount`, `percentage`, `minFee`, `maxFee`. Each tier must have a valid `rateType` (FIXED, PERCENTAGE, HYBRID, or GREATER_OF) with the correct accompanying fields. The legacy `TIERED` value is rejected as an unknown feeType.
+- **Tier rateType validation (`validateTiers`):** Enforces per-tier field rules: FIXED requires `amount` and forbids `percentage`; PERCENTAGE requires `percentage` and forbids `amount`; HYBRID and GREATER_OF require both `amount` and `percentage`. Unknown `rateType` values are rejected.
 - **FREE:** Forbids all monetary fields — `flatAmount`, `percentage`, `tiers`, `minFee`, `maxFee`. A free rule must carry no financial data.
-- **Unknown feeType:** The `@NotBlank` annotation ensures feeType is present but doesn't validate it against an enumeration. Unknown values are rejected here as a fail-fast guard — preventing invalid data from being forwarded to fee-engine.
+- **Unknown feeType:** The `@NotBlank` annotation ensures feeType is present but doesn't validate it against an enumeration. Unknown values (including the legacy `TIERED`) are rejected here as a fail-fast guard — preventing invalid data from being forwarded to fee-engine.
 
 ---
 

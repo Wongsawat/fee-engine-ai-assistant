@@ -91,8 +91,20 @@ AI-generated rules are validated against `FeeRuleSchema` constraints before pers
 |---------|----------|-----------|
 | `FLAT` | `flatAmount` | `percentage`, `tiers`, `minFee`, `maxFee` |
 | `PERCENTAGE` | `percentage` | `flatAmount`, `tiers` |
-| `TIERED` | `tiers` (≥1 entry) | `flatAmount`, `percentage`, `minFee`, `maxFee` |
+| `TIERED_SLAB` | `tiers` (≥1 entry) | `flatAmount`, `percentage`, `minFee`, `maxFee` |
+| `TIERED_STEP` | `tiers` (≥1 entry) | `flatAmount`, `percentage`, `minFee`, `maxFee` |
 | `FREE` | — | `flatAmount`, `percentage`, `tiers`, `minFee`, `maxFee` |
+
+Each tier within `TIERED_SLAB`/`TIERED_STEP` rules requires a `rateType` field:
+
+| rateType | Required tier fields | Formula |
+|----------|---------------------|---------|
+| `FIXED` | `amount` | Flat fee per tier |
+| `PERCENTAGE` | `percentage` | `amount × percentage` |
+| `HYBRID` | `amount` + `percentage` | `amount + txnAmount × percentage` |
+| `GREATER_OF` | `amount` + `percentage` | `max(amount, txnAmount × percentage)` |
+
+Distribution modes: **TIERED_SLAB** applies the matched tier's formula to the full transaction amount; **TIERED_STEP** applies each entered tier's formula to the portion within that bracket and sums the results.
 
 ## Security
 
@@ -167,7 +179,7 @@ mvn spring-boot:run
 | `AI_DAILY_TOKEN_LIMIT` | `0` | Daily token budget (0 = unlimited) |
 | `FEE_ENGINE_BASE_URL` | `http://localhost:8080` | Downstream fee-engine base URL |
 | `FEE_ENGINE_TIMEOUT_SECONDS` | `10` | Fee-engine HTTP client timeout |
-| `FEE_ENGINE_SCHEMA_VERSION` | `V7` | Fee-engine schema version injected into system prompt |
+| `FEE_ENGINE_SCHEMA_VERSION` | `V8` | Fee-engine schema version injected into system prompt |
 | `PROMPT_REDACT_DAYS` | `30` | Days before redacting prompts on terminal drafts |
 | `DRAFT_PURGE_DAYS` | `90` | Days before deleting terminal drafts |
 
@@ -212,7 +224,7 @@ ai-assistant:
     prompt-redact-days: ${PROMPT_REDACT_DAYS:30}
     purge-days: ${DRAFT_PURGE_DAYS:90}
   schema:
-    fee-engine-schema-version: ${FEE_ENGINE_SCHEMA_VERSION:V7}
+    fee-engine-schema-version: ${FEE_ENGINE_SCHEMA_VERSION:V8}
 
 fee-engine:
   base-url: ${FEE_ENGINE_BASE_URL:http://localhost:8080}
