@@ -2,7 +2,7 @@
 
 AI-powered fee rule assistant for the `pisp` fee-engine. Uses Spring AI (Anthropic-compatible API) to generate, review, and manage fee rule drafts through a human-in-the-loop workflow. Administrators describe fee rules in natural language; the AI produces structured JSON, which is validated, dry-run against the fee-engine, and only persisted to production after explicit approval.
 
-Part of the `pisp` platform alongside the [fee-engine](../fee-engine) (downstream rule engine) and [saga-orchestrator](../saga-orchestrator) services.
+Part of the `pisp` platform alongside the [fee-engine](https://github.com/Wongsawat/fee-engine) (downstream rule engine) and [saga-orchestrator](https://github.com/Wongsawat/saga-orchestrator) services.
 
 For detailed sequence and flow diagrams covering rule generation, AI chat, dry-run, approval, draft lifecycle, retention, security, and error handling, see [docs/flow-diagrams.md](docs/flow-diagrams.md).
 
@@ -136,7 +136,7 @@ Unauthenticated or forbidden requests receive `application/problem+json` respons
 - Maven 3.9+
 - PostgreSQL 16 (or run via Docker/Testcontainers for tests)
 - Docker (for Testcontainers during `mvn test`)
-- Running [fee-engine](../fee-engine) service (for dry-runs and rule approval)
+- Running [fee-engine](https://github.com/Wongsawat/fee-engine) service (for dry-runs and rule approval)
 - Anthropic-compatible AI API endpoint (e.g. Anthropic API or compatible proxy)
 
 ## Build & Run
@@ -327,6 +327,6 @@ All errors return RFC 7807 `ProblemDetail` (`application/problem+json`).
 
 ## Related
 
-- [fee-engine](../fee-engine) — Fee calculation engine (downstream service for dry-runs and rule persistence)
-- [saga-orchestrator](../saga-orchestrator) — Choreographed saga orchestration for payment workflows
-- [domestic-payments](../domestic-payments) — Domestic payment service that consumes fee calculations
+- [fee-engine](https://github.com/Wongsawat/fee-engine) — Fee calculation engine (downstream service for dry-runs and rule persistence)
+- [saga-orchestrator](https://github.com/Wongsawat/saga-orchestrator) — Choreographed saga orchestration for payment workflows
+- [domestic-payments](https://github.com/Wongsawat/domestic-payments) — Domestic payment service that consumes fee calculations
